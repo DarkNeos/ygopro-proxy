@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -19,10 +18,6 @@ const BUFFER_SIZE = 0x1000
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  0x1000,
 	WriteBufferSize: 0x1000,
-}
-
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Home Page")
 }
 
 func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
@@ -104,8 +99,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 func wsChecker(r *http.Request) bool { return true }
 
 func setupRoutes() {
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/ygo", ygoEndpoint)
+	http.HandleFunc("/", ygoEndpoint)
 }
 
 func main() {
