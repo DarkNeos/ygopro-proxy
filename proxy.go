@@ -35,7 +35,7 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
-		log.Fatal(err)
+    log.Fatal("connect tcp server error", err)
 	}
 	defer tcp.Close()
 
@@ -49,7 +49,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	for {
 		messageType, buf, err := ws.ReadMessage()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("websocket read message error", err)
 			break
 		}
 
@@ -65,7 +65,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 
 		_, err = writer.Write(buffer)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("websocket send message error", err)
 			break
 		}
 	}
@@ -80,15 +80,15 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		_, err := reader.Read(buffer)
 		if err != nil {
-			log.Fatal(err)
-			break
+			log.Fatal("tcp read message error", err)
+      break
 		}
 
 		log.Println("tcp to websocket: " + string(buffer))
 
 		err = ws.WriteMessage(websocket.TextMessage, buffer) // temporary TextMessage, should be BinaryMessage in ygopro
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("tcp send message error", err)
 			break
 		}
 	}
