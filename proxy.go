@@ -2,7 +2,7 @@ package main
 
 import (
 	"bufio"
-	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -21,10 +21,6 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 0x1000,
 }
 
-func homePage(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "Home Page")
-}
-
 func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	var wg sync.WaitGroup
 
@@ -40,8 +36,11 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("connect tcp server error: ", err)
 	}
+
+	log.Println("Tcp connected")
+
 	defer tcp.Close()
 
 	wg.Add(2)
@@ -54,7 +53,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	for {
 		messageType, buf, err := ws.ReadMessage()
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("websocket read message error: ", err)
 			break
 		}
 
@@ -70,7 +69,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 
 		_, err = writer.Write(buffer)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("websocket send message error: ", err)
 			break
 		}
 	}
@@ -85,7 +84,11 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		_, err := reader.Read(buffer)
 		if err != nil {
-			log.Fatal(err)
+			if err == io.EOF {
+				continue
+			}
+
+			log.Fatal("tcp read message error: ", err)
 			break
 		}
 
@@ -93,7 +96,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		err = ws.WriteMessage(websocket.TextMessage, buffer) // temporary TextMessage, should be BinaryMessage in ygopro
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("tcp send message error: ", err)
 			break
 		}
 	}
@@ -104,8 +107,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 func wsChecker(r *http.Request) bool { return true }
 
 func setupRoutes() {
-	http.HandleFunc("/", homePage)
-	http.HandleFunc("/ygo", ygoEndpoint)
+	http.HandleFunc("/", ygoEndpoint)
 }
 
 func main() {
