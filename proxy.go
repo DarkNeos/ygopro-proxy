@@ -53,7 +53,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	for {
 		messageType, buf, err := ws.ReadMessage()
 		if err != nil {
-			log.Fatal("websocket read message error: ", err)
+			log.Println("websocket read message error: ", err)
 			break
 		}
 
@@ -88,7 +88,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 				continue
 			}
 
-			log.Fatal("tcp read message error: ", err)
+			log.Println("tcp read message error: ", err)
 			break
 		}
 
