@@ -50,6 +50,9 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
+	writer := bufio.NewWriter(*tcp)
+	buffer := make([]byte, BUFFER_SIZE)
+
 	for {
 		messageType, buf, err := ws.ReadMessage()
 		if err != nil {
@@ -64,9 +67,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 
 		log.Println("websocket to tcp: " + string(buf))
 
-		writer := bufio.NewWriter(*tcp)
-		buffer := make([]byte, BUFFER_SIZE)
-
+		// todo: convert pb to buffer
 		_, err = writer.Write(buffer)
 		if err != nil {
 			log.Fatal("websocket send message error: ", err)
@@ -78,10 +79,10 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 }
 
 func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
-	for {
-		reader := bufio.NewReader(*tcp)
-		buffer := make([]byte, BUFFER_SIZE)
+	reader := bufio.NewReader(*tcp)
+	buffer := make([]byte, BUFFER_SIZE)
 
+	for {
 		_, err := reader.Read(buffer)
 		if err != nil {
 			if err == io.EOF {
@@ -94,6 +95,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		log.Println("tcp to websocket: " + string(buffer))
 
+		// todo: convert buffer to pb
 		err = ws.WriteMessage(websocket.TextMessage, buffer) // temporary TextMessage, should be BinaryMessage in ygopro
 		if err != nil {
 			log.Fatal("tcp send message error: ", err)
