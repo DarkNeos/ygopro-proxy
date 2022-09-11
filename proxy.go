@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
+	darkneos "github.com/sktt1ryze/ygopro-proxy/DarkNeos"
 )
 
 const TARGET_PORT = ":8000"
@@ -51,7 +52,6 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 
 func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	writer := bufio.NewWriter(*tcp)
-	buffer := make([]byte, BUFFER_SIZE)
 
 	for {
 		messageType, buf, err := ws.ReadMessage()
@@ -67,7 +67,12 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 
 		log.Println("websocket to tcp: " + string(buf))
 
-		// todo: convert pb to buffer
+		buffer, err := darkneos.Transform(buf, darkneos.ProtobufToRawBuf)
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
+
 		_, err = writer.Write(buffer)
 		if err != nil {
 			log.Fatal("websocket send message error: ", err)
