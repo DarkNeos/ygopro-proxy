@@ -16,6 +16,32 @@ const (
 	RawBufToProtobuf = 2
 )
 
+const (
+	CtosProtoPlayerInfo = 16
+	CtosProtoJoinGame   = 18
+)
+
+type YgoPacket struct {
+	PacketLen uint16
+	Proto     uint8
+	Exdata    []byte
+}
+
+func packetToBuffer(pkt YgoPacket) []byte {
+	buf := make([]byte, 0)
+
+	// packet len
+	buf = append(buf, byte(pkt.PacketLen), byte(pkt.PacketLen>>8))
+	// proto
+	buf = append(buf, byte(pkt.Proto))
+	// exdata
+	for _, v := range pkt.Exdata {
+		buf = append(buf, v)
+	}
+
+	return buf
+}
+
 func Transform(src []byte, tranformType int) ([]byte, error) {
 	if tranformType == ProtobufToRawBuf {
 		message := &ygopropb.YgoCtosMsg{}
@@ -24,14 +50,18 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 			return nil, err
 		}
 
+		var packet YgoPacket
 		switch message.Msg.(type) {
 		case *(ygopropb.YgoCtosMsg_CtosPlayerInfo):
-			return transformPlayerInfo(message.GetCtosPlayerInfo()), nil
+			packet = transformPlayerInfo(message.GetCtosPlayerInfo())
 		case *(ygopropb.YgoCtosMsg_CtosJoinGame):
-			return transformJoinGame(message.GetCtosJoinGame()), nil
+			packet = transformJoinGame(message.GetCtosJoinGame())
 		default:
 			return nil, errors.New("Unhandled YgoCtosMsg type")
 		}
+
+		return packetToBuffer(packet), nil
+
 	} else if tranformType == RawBufToProtobuf {
 		return nil, errors.New("Unhandled tranformType")
 	} else {
@@ -39,25 +69,40 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 	}
 }
 
-func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) []byte {
-	buf := strToUtf16Buffer(pb.Name)
+// todo: use interface
 
-	return uint16BufToByteBuf(buf)
+// @Name: [uint16, 20]
+func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) YgoPacket {
+	buf := strToUtf16Buffer(pb.Name)
+	exdata := uint16BufToByteBuf(buf)
+
+	return YgoPacket{
+		PacketLen: uint16(len(exdata)) + 1,
+		Proto:     CtosProtoPlayerInfo,
+		Exdata:    exdata,
+	}
 }
 
-func transformJoinGame(pb *ygopropb.CtosJoinGame) []byte {
-	buf := make([]byte, 0)
+// @Version: uint16
+// @Gameid: uint32
+// @Passwd: [uint16, 20]
+func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
+	exdata := make([]byte, 0)
 
 	version := uint16(pb.Version)
-	buf = append(buf, byte(version), byte(pb.Version>>8), 0, 0)
+	exdata = append(exdata, byte(version), byte(version>>8), 0, 0)
 
-	buf = append(buf, byte(pb.Gameid), byte(pb.Gameid>>8), byte(pb.Gameid>>16), byte(pb.Gameid>>24))
+	exdata = append(exdata, byte(pb.Gameid), byte(pb.Gameid>>8), byte(pb.Gameid>>16), byte(pb.Gameid>>24))
 
 	for _, v := range uint16BufToByteBuf(strToUtf16Buffer(pb.Passwd)) {
-		buf = append(buf, v)
+		exdata = append(exdata, v)
 	}
 
-	return buf
+	return YgoPacket{
+		PacketLen: uint16(len(exdata)) + 1,
+		Proto:     CtosProtoJoinGame,
+		Exdata:    exdata,
+	}
 }
 
 func strToUtf16Buffer(s string) []uint16 {
