@@ -1,7 +1,9 @@
 package darkneos
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	"unicode/utf16"
 
 	"github.com/sktt1ryze/ygopro-proxy/DarkNeos/ygopropb"
@@ -10,6 +12,7 @@ import (
 
 const FILLING_TOKEN uint16 = 0xcccc
 const UTF16_BUFFER_MAX_LEN int = 20
+const PACKET_MIN_LEN int = 3
 
 const (
 	ProtobufToRawBuf = 1
@@ -19,6 +22,8 @@ const (
 const (
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
+
+	StocChat = 25
 )
 
 type YgoPacket struct {
@@ -42,6 +47,23 @@ func packetToBuffer(pkt YgoPacket) []byte {
 	return buf
 }
 
+func bufferToPacket(p []byte) (YgoPacket, error) {
+	if len(p) < PACKET_MIN_LEN {
+		return YgoPacket{}, errors.New(fmt.Sprintf("Packet len too short, len=%d", len(p)))
+	}
+
+	// todo: impl Reader/Writer for buffer
+	packet_len := binary.LittleEndian.Uint16(p)
+	proto := p[2]
+	exdata := p[3 : packet_len+2]
+
+	return YgoPacket{
+		PacketLen: packet_len,
+		Proto:     proto,
+		Exdata:    exdata,
+	}, nil
+}
+
 func Transform(src []byte, tranformType int) ([]byte, error) {
 	if tranformType == ProtobufToRawBuf {
 		message := &ygopropb.YgoCtosMsg{}
@@ -63,7 +85,23 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		return packetToBuffer(packet), nil
 
 	} else if tranformType == RawBufToProtobuf {
-		return nil, errors.New("Unhandled tranformType")
+		packet, err := bufferToPacket(src)
+		if err != nil {
+			return nil, err
+		}
+
+		var pb ygopropb.YgoCtosMsg
+		switch packet.Proto {
+		case StocChat:
+			msg := transformChat(packet)
+			pb = ygopropb.YgoCtosMsg{
+				Msg: &msg,
+			}
+		default:
+			return nil, errors.New("Unhandled YgoStocMsg type")
+		}
+
+		return proto.Marshal(&pb)
 	} else {
 		return nil, errors.New("Unknown tranformType")
 	}
@@ -71,7 +109,9 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 
 // todo: use interface
 
-// @Name: [uint16, 20]
+// +++++ Client To Server +++++
+
+// @Name: [20]uint16
 func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) YgoPacket {
 	buf := strToUtf16Buffer(pb.Name)
 	exdata := uint16BufToByteBuf(buf)
@@ -85,7 +125,7 @@ func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) YgoPacket {
 
 // @Version: uint16
 // @Gameid: uint32
-// @Passwd: [uint16, 20]
+// @Passwd: [20]uint16
 func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
 	exdata := make([]byte, 0)
 
@@ -104,6 +144,24 @@ func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
 		Exdata:    exdata,
 	}
 }
+
+// +++++ Server To Client +++++
+
+// @player: uint16
+// @message: []uint16
+func transformChat(pkt YgoPacket) ygopropb.YgoCtosMsg_StocChat {
+	player := int32(binary.LittleEndian.Uint16(pkt.Exdata))
+	message := utf16BufferToStr(pkt.Exdata[2:])
+
+	return ygopropb.YgoCtosMsg_StocChat{
+		StocChat: &ygopropb.StocChat{
+			Player: player,
+			Msg:    message,
+		},
+	}
+}
+
+// +++++ Util Functions +++++
 
 func strToUtf16Buffer(s string) []uint16 {
 	b := make([]uint16, UTF16_BUFFER_MAX_LEN, UTF16_BUFFER_MAX_LEN)
@@ -129,6 +187,12 @@ func strToUtf16Buffer(s string) []uint16 {
 	return b
 }
 
+func utf16BufferToStr(p []byte) string {
+	v := chunkBytesToUint16s(p)
+
+	return string(utf16.Decode(v))
+}
+
 func uint16BufToByteBuf(u16_b []uint16) []byte {
 	b := make([]byte, 0, len(u16_b)*2)
 
@@ -138,4 +202,15 @@ func uint16BufToByteBuf(u16_b []uint16) []byte {
 	}
 
 	return b
+}
+
+func chunkBytesToUint16s(items []byte) []uint16 {
+	const chunkSize = 2
+	var chunks []uint16
+
+	for chunkSize < len(items) {
+		items, chunks = items[chunkSize:], append(chunks, binary.LittleEndian.Uint16(items))
+	}
+
+	return chunks
 }
