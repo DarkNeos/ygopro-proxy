@@ -90,11 +90,11 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 			return nil, err
 		}
 
-		var pb ygopropb.YgoCtosMsg
+		var pb ygopropb.YgoStocMsg
 		switch packet.Proto {
 		case StocChat:
 			msg := transformChat(packet)
-			pb = ygopropb.YgoCtosMsg{
+			pb = ygopropb.YgoStocMsg{
 				Msg: &msg,
 			}
 		default:
@@ -149,11 +149,11 @@ func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
 
 // @player: uint16
 // @message: []uint16
-func transformChat(pkt YgoPacket) ygopropb.YgoCtosMsg_StocChat {
+func transformChat(pkt YgoPacket) ygopropb.YgoStocMsg_StocChat {
 	player := int32(binary.LittleEndian.Uint16(pkt.Exdata))
 	message := utf16BufferToStr(pkt.Exdata[2:])
 
-	return ygopropb.YgoCtosMsg_StocChat{
+	return ygopropb.YgoStocMsg_StocChat{
 		StocChat: &ygopropb.StocChat{
 			Player: player,
 			Msg:    message,
