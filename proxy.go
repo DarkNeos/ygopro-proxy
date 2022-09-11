@@ -54,7 +54,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	writer := bufio.NewWriter(*tcp)
 
 	for {
-		messageType, buf, err := ws.ReadMessage()
+		messageType, buffer, err := ws.ReadMessage()
 		if err != nil {
 			log.Println("websocket read message error: ", err)
 			break
@@ -65,9 +65,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 			break
 		}
 
-		log.Println("websocket to tcp: " + string(buf))
-
-		buffer, err := darkneos.Transform(buf, darkneos.ProtobufToRawBuf)
+		buffer, err = darkneos.Transform(buffer, darkneos.ProtobufToRawBuf)
 		if err != nil {
 			log.Fatal(err)
 			break
@@ -98,10 +96,13 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 			break
 		}
 
-		log.Println("tcp to websocket: " + string(buffer))
+		buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf)
+		if err != nil {
+			log.Fatal(err)
+			break
+		}
 
-		// todo: convert buffer to pb
-		err = ws.WriteMessage(websocket.TextMessage, buffer) // temporary TextMessage, should be BinaryMessage in ygopro
+		err = ws.WriteMessage(websocket.BinaryMessage, buffer)
 		if err != nil {
 			log.Fatal("tcp send message error: ", err)
 			break
