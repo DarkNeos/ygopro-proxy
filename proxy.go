@@ -37,7 +37,7 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
-		log.Fatal("Connect tcp server error: ", err)
+		log.Fatal(err)
 	}
 
 	log.Println("Tcp connected")
@@ -54,7 +54,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 	for {
 		messageType, buffer, err := ws.ReadMessage()
 		if err != nil {
-			log.Println("Websocket read message error: ", err)
+			log.Println(err)
 			break
 		}
 
@@ -71,7 +71,7 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 
 		_, err = (*tcp).Write(buffer)
 		if err != nil {
-			log.Fatal("Tcp send message error: ", err)
+			log.Fatal(err)
 			break
 		}
 	}
@@ -102,7 +102,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		err = ws.WriteMessage(websocket.BinaryMessage, buffer)
 		if err != nil {
-			log.Fatal("Websocket send message error: ", err)
+			log.Fatal(err)
 			break
 		}
 	}
