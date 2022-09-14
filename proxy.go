@@ -37,7 +37,7 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
-		log.Fatal("connect tcp server error: ", err)
+		log.Fatal(err)
 	}
 
 	log.Println("Tcp connected")
@@ -51,12 +51,12 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
-	writer := bufio.NewWriter(*tcp)
+	defer wg.Done()
 
 	for {
 		messageType, buffer, err := ws.ReadMessage()
 		if err != nil {
-			log.Println("websocket read message error: ", err)
+			log.Println(err)
 			break
 		}
 
@@ -71,17 +71,17 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 			break
 		}
 
-		_, err = writer.Write(buffer)
+		_, err = (*tcp).Write(buffer)
 		if err != nil {
-			log.Fatal("websocket send message error: ", err)
+			log.Fatal(err)
 			break
 		}
 	}
-
-	wg.Done()
 }
 
 func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	reader := bufio.NewReader(*tcp)
 	buffer := make([]byte, BUFFER_SIZE)
 
@@ -92,7 +92,7 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 				continue
 			}
 
-			log.Println("tcp read message error: ", err)
+			log.Println("Tcp read message error: ", err)
 			break
 		}
 
@@ -104,12 +104,10 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 
 		err = ws.WriteMessage(websocket.BinaryMessage, buffer)
 		if err != nil {
-			log.Fatal("tcp send message error: ", err)
+			log.Fatal(err)
 			break
 		}
 	}
-
-	wg.Done()
 }
 
 func wsChecker(r *http.Request) bool { return true }
