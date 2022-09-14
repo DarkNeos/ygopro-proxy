@@ -51,6 +51,8 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 }
 
 func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	for {
 		messageType, buffer, err := ws.ReadMessage()
 		if err != nil {
@@ -75,11 +77,11 @@ func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
 			break
 		}
 	}
-
-	wg.Done()
 }
 
 func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	reader := bufio.NewReader(*tcp)
 	buffer := make([]byte, BUFFER_SIZE)
 
@@ -106,8 +108,6 @@ func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
 			break
 		}
 	}
-
-	wg.Done()
 }
 
 func wsChecker(r *http.Request) bool { return true }
