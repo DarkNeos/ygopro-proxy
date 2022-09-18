@@ -6,7 +6,7 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	darkneos "github.com/sktt1ryze/ygopro-proxy/DarkNeos"
@@ -16,6 +16,7 @@ const TARGET_PORT = ":8000"
 const PROXY_PORT = ":3344"
 const CHANNEL_SIZE = 0x1000
 const BUFFER_SIZE = 0x1000
+const TIME_OUT = 5
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  0x1000,
@@ -23,7 +24,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
-	var wg sync.WaitGroup
+	defer log.Println("ygoEndpoint finished")
 
 	upgrader.CheckOrigin = wsChecker
 
@@ -31,81 +32,137 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ws.Close()
 
-	log.Println("Websocket connected")
+	log.Println("Connection to ws://localhost" + TARGET_PORT + " [websocket] succeeded!")
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("Tcp connected")
+	log.Println("Connection to " + "12.0.0.1" + PROXY_PORT + " [tcp] succeeded!")
 
-	defer tcp.Close()
+	wsCh := make(chan []byte, CHANNEL_SIZE)
+	tcpCh := make(chan []byte, CHANNEL_SIZE)
+	wsStopCh := make(chan bool, CHANNEL_SIZE)
+	tcpStopCh := make(chan bool, CHANNEL_SIZE)
 
-	wg.Add(2)
-	go wsProxy(ws, &tcp, &wg)
-	go tcpProxy(&tcp, ws, &wg)
-	wg.Wait()
-}
+	defer func() {
+		wsStopCh <- true
+		tcpStopCh <- true
 
-func wsProxy(ws *websocket.Conn, tcp *net.Conn, wg *sync.WaitGroup) {
-	defer wg.Done()
+		close(wsStopCh)
+		close(tcpStopCh)
+	}()
+
+	go wsProxy(ws, wsCh, wsStopCh)
+	go tcpProxy(tcp, tcpCh, tcpStopCh)
 
 	for {
-		messageType, buffer, err := ws.ReadMessage()
-		if err != nil {
-			log.Println(err)
-			break
-		}
+		select {
+		case wsBuf, ok := <-wsCh:
+			if !ok {
+				return
+			}
 
-		if messageType == websocket.CloseMessage {
-			log.Println("Websocket closed")
-			break
-		}
+			if _, err = tcp.Write(wsBuf); err != nil {
+				log.Println(err)
+				return
+			}
+		case tcpBuf, ok := <-tcpCh:
+			if !ok {
+				return
+			}
 
-		buffer, err = darkneos.Transform(buffer, darkneos.ProtobufToRawBuf)
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
-
-		_, err = (*tcp).Write(buffer)
-		if err != nil {
-			log.Fatal(err)
-			break
+			if err = ws.WriteMessage(websocket.BinaryMessage, tcpBuf); err != nil {
+				log.Println(err)
+				return
+			}
 		}
 	}
 }
 
-func tcpProxy(tcp *net.Conn, ws *websocket.Conn, wg *sync.WaitGroup) {
-	defer wg.Done()
+// todo: generic
+func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
+	defer ws.Close()
+	defer close(Ch)
 
-	reader := bufio.NewReader(*tcp)
+	for {
+		select {
+		case _, ok := <-stopCh:
+			log.Println("wsProxy recv stop singal, exit. channel closed: ", ok)
+			return
+		default:
+			// if err := ws.SetReadDeadline(time.Now().Add(time.Second * TIME_OUT)); err != nil {
+			//   log.Println(err)
+			//   return
+			// }
+
+			messageType, buffer, err := ws.ReadMessage()
+			if err != nil {
+				//   if err, ok := err.(net.Error); ok && err.Timeout() {
+				//     continue
+				//   }
+
+				log.Println(err)
+				return
+			}
+
+			if messageType == websocket.CloseMessage {
+				log.Println("Websocket closed")
+				return
+			}
+
+			buffer, err = darkneos.Transform(buffer, darkneos.ProtobufToRawBuf)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			Ch <- buffer
+		}
+	}
+}
+
+func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool) {
+	defer tcp.Close()
+	defer close(Ch)
+
+	reader := bufio.NewReader(tcp)
 	buffer := make([]byte, BUFFER_SIZE)
 
 	for {
-		_, err := reader.Read(buffer)
-		if err != nil {
-			if err == io.EOF {
-				continue
+		select {
+		case _, ok := <-stopCh:
+			log.Println("tcpProxy recv stop singal, exit. channel closed: ", ok)
+			return
+		default:
+			if err := tcp.SetReadDeadline(time.Now().Add(time.Second * TIME_OUT)); err != nil {
+				log.Println(err)
+				return
 			}
 
-			log.Println("Tcp read message error: ", err)
-			break
-		}
+			_, err := reader.Read(buffer)
+			if err != nil {
+				if err == io.EOF {
+					continue
+				}
 
-		buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf)
-		if err != nil {
-			log.Fatal(err)
-			break
-		}
+				if err, ok := err.(net.Error); ok && err.Timeout() {
+					continue
+				}
 
-		err = ws.WriteMessage(websocket.BinaryMessage, buffer)
-		if err != nil {
-			log.Fatal(err)
-			break
+				log.Println(err)
+				return
+			}
+
+			buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf)
+			if err != nil {
+				log.Println(err)
+				return
+			}
+
+			Ch <- buffer
 		}
 	}
 }
@@ -117,6 +174,8 @@ func setupRoutes() {
 }
 
 func main() {
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Llongfile)
+
 	setupRoutes()
 
 	log.Fatal(http.ListenAndServe(TARGET_PORT, nil))
