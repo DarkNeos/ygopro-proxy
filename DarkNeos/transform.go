@@ -120,7 +120,7 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 				Msg: &msg,
 			}
 		default:
-			return nil, errors.New("Unhandled YgoStocMsg type")
+			return nil, errors.New(fmt.Sprintf("Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
 
 		return proto.Marshal(&pb)
