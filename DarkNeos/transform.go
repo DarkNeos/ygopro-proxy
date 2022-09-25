@@ -1,9 +1,12 @@
+// todo: use interface
 package darkneos
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"unicode/utf16"
 
 	"github.com/sktt1ryze/ygopro-proxy/DarkNeos/ygopropb"
@@ -23,13 +26,27 @@ const (
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
 
-	StocChat = 25
+	StocJoinGame = 18
+	StocChat     = 25
 )
 
 type YgoPacket struct {
 	PacketLen uint16
 	Proto     uint8
 	Exdata    []byte
+}
+
+type HostInfo struct {
+	Lflist        uint32
+	Rule          uint8
+	Mode          uint8
+	DuelRule      uint8
+	NoCheckDeck   bool
+	NoShuffleDeck bool
+	StartLp       uint32
+	StartHand     uint8
+	DrawCount     uint8
+	TimeLimit     uint16
 }
 
 func packetToBuffer(pkt YgoPacket) []byte {
@@ -97,8 +114,13 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 			pb = ygopropb.YgoStocMsg{
 				Msg: &msg,
 			}
+		case StocJoinGame:
+			msg := transformJoinGame_(packet)
+			pb = ygopropb.YgoStocMsg{
+				Msg: &msg,
+			}
 		default:
-			return nil, errors.New("Unhandled YgoStocMsg type")
+			return nil, errors.New(fmt.Sprintf("Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
 
 		return proto.Marshal(&pb)
@@ -106,8 +128,6 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		return nil, errors.New("Unknown tranformType")
 	}
 }
-
-// todo: use interface
 
 // +++++ Client To Server +++++
 
@@ -157,6 +177,40 @@ func transformChat(pkt YgoPacket) ygopropb.YgoStocMsg_StocChat {
 		StocChat: &ygopropb.StocChat{
 			Player: player,
 			Msg:    message,
+		},
+	}
+}
+
+// @lflist: uint32
+// @rule: uint8
+// @mode: uint8
+// @duel_rule: uint8
+// @no_check_deck: bool
+// @no_shuffle_deck: bool
+// @start_lp: uint32
+// @start_hand: uint8
+// @draw_count: uint8
+// @time_limit: uint16
+func transformJoinGame_(pkt YgoPacket) ygopropb.YgoStocMsg_StocJoinGame {
+	hostInfo := HostInfo{}
+	exData := bytes.NewBuffer(pkt.Exdata)
+
+	if err := binary.Read(exData, binary.LittleEndian, &hostInfo); err != nil {
+		log.Fatal(err)
+	}
+
+	return ygopropb.YgoStocMsg_StocJoinGame{
+		StocJoinGame: &ygopropb.StocJoinGame{
+			Lflist:        int32(hostInfo.Lflist),
+			Rule:          int32(hostInfo.Rule),
+			Mode:          int32(hostInfo.Mode),
+			DuelRule:      int32(hostInfo.DuelRule),
+			NoCheckDeck:   hostInfo.NoCheckDeck,
+			NoShuffleDeck: hostInfo.NoShuffleDeck,
+			StartLp:       int32(hostInfo.StartLp),
+			StartHand:     int32(hostInfo.StartHand),
+			DrawCount:     int32(hostInfo.DrawCount),
+			TimeLimit:     int32(hostInfo.TimeLimit),
 		},
 	}
 }
