@@ -92,9 +92,9 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		var packet YgoPacket
 		switch message.Msg.(type) {
 		case *(ygopropb.YgoCtosMsg_CtosPlayerInfo):
-			packet = transformPlayerInfo(message.GetCtosPlayerInfo())
+			packet = (*pCtosPlayerInfo)(message.GetCtosPlayerInfo()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosJoinGame):
-			packet = transformJoinGame(message.GetCtosJoinGame())
+			packet = (*pCtosJoinGame)(message.GetCtosJoinGame()).Pb2Packet()
 		default:
 			return nil, errors.New("Unhandled YgoCtosMsg type")
 		}
@@ -110,15 +110,9 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		var pb ygopropb.YgoStocMsg
 		switch packet.Proto {
 		case StocChat:
-			msg := transformChat(packet)
-			pb = ygopropb.YgoStocMsg{
-				Msg: &msg,
-			}
+			pb = pStocChat{}.Packet2Pb(packet)
 		case StocJoinGame:
-			msg := transformJoinGame_(packet)
-			pb = ygopropb.YgoStocMsg{
-				Msg: &msg,
-			}
+			pb = pStocJoinGame{}.Packet2Pb(packet)
 		default:
 			return nil, errors.New(fmt.Sprintf("Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
@@ -131,8 +125,14 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 
 // +++++ Client To Server +++++
 
+type client2Server interface {
+	Pb2Packet() YgoPacket
+}
+
+type pCtosPlayerInfo ygopropb.CtosPlayerInfo
+
 // @Name: [20]uint16
-func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) YgoPacket {
+func (pb *pCtosPlayerInfo) Pb2Packet() YgoPacket {
 	buf := strToUtf16Buffer(pb.Name)
 	exdata := uint16BufToByteBuf(buf)
 
@@ -143,10 +143,12 @@ func transformPlayerInfo(pb *ygopropb.CtosPlayerInfo) YgoPacket {
 	}
 }
 
+type pCtosJoinGame ygopropb.CtosJoinGame
+
 // @Version: uint16
 // @Gameid: uint32
 // @Passwd: [20]uint16
-func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
+func (pb *pCtosJoinGame) Pb2Packet() YgoPacket {
 	exdata := make([]byte, 0)
 
 	version := uint16(pb.Version)
@@ -167,19 +169,31 @@ func transformJoinGame(pb *ygopropb.CtosJoinGame) YgoPacket {
 
 // +++++ Server To Client +++++
 
+type server2Client interface {
+	Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg
+}
+
+type pStocChat struct{}
+
 // @player: uint16
 // @message: []uint16
-func transformChat(pkt YgoPacket) ygopropb.YgoStocMsg_StocChat {
+func (_ pStocChat) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	player := int32(binary.LittleEndian.Uint16(pkt.Exdata))
 	message := utf16BufferToStr(pkt.Exdata[2:])
 
-	return ygopropb.YgoStocMsg_StocChat{
+	msg := ygopropb.YgoStocMsg_StocChat{
 		StocChat: &ygopropb.StocChat{
 			Player: player,
 			Msg:    message,
 		},
 	}
+
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
+	}
 }
+
+type pStocJoinGame struct{}
 
 // @lflist: uint32
 // @rule: uint8
@@ -191,7 +205,7 @@ func transformChat(pkt YgoPacket) ygopropb.YgoStocMsg_StocChat {
 // @start_hand: uint8
 // @draw_count: uint8
 // @time_limit: uint16
-func transformJoinGame_(pkt YgoPacket) ygopropb.YgoStocMsg_StocJoinGame {
+func (_ pStocJoinGame) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	hostInfo := HostInfo{}
 	exData := bytes.NewBuffer(pkt.Exdata)
 
@@ -199,7 +213,7 @@ func transformJoinGame_(pkt YgoPacket) ygopropb.YgoStocMsg_StocJoinGame {
 		log.Fatal(err)
 	}
 
-	return ygopropb.YgoStocMsg_StocJoinGame{
+	msg := ygopropb.YgoStocMsg_StocJoinGame{
 		StocJoinGame: &ygopropb.StocJoinGame{
 			Lflist:        int32(hostInfo.Lflist),
 			Rule:          int32(hostInfo.Rule),
@@ -212,6 +226,10 @@ func transformJoinGame_(pkt YgoPacket) ygopropb.YgoStocMsg_StocJoinGame {
 			DrawCount:     int32(hostInfo.DrawCount),
 			TimeLimit:     int32(hostInfo.TimeLimit),
 		},
+	}
+
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
 	}
 }
 
