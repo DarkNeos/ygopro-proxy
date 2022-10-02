@@ -10,13 +10,14 @@ import (
 	"unicode/utf16"
 
 	"github.com/sktt1ryze/ygopro-proxy/DarkNeos/ygopropb"
+	util "github.com/sktt1ryze/ygopro-proxy/util"
 	"google.golang.org/protobuf/proto"
 )
 
 const FILLING_TOKEN uint16 = 0xcccc
 const UTF16_BUFFER_MAX_LEN int = 20
 const PACKET_MIN_LEN int = 3
-
+const COMPONENT = "[transform]"
 const (
 	ProtobufToRawBuf = 1
 	RawBufToProtobuf = 2
@@ -26,8 +27,9 @@ const (
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
 
-	StocJoinGame = 18
-	StocChat     = 25
+	StocJoinGame      = 18
+	StocChat          = 25
+	StocHsPlayerEnter = 32
 )
 
 type YgoPacket struct {
@@ -64,7 +66,7 @@ func packetToBuffer(pkt YgoPacket) []byte {
 	return buf
 }
 
-func bufferToPacket(p []byte) (YgoPacket, error) {
+func bufferToPacket(p []byte, ctx *util.Context) (YgoPacket, error) {
 	if len(p) < PACKET_MIN_LEN {
 		return YgoPacket{}, errors.New(fmt.Sprintf("Packet len too short, len=%d", len(p)))
 	}
@@ -72,6 +74,17 @@ func bufferToPacket(p []byte) (YgoPacket, error) {
 	// todo: impl Reader/Writer for buffer
 	packet_len := binary.LittleEndian.Uint16(p)
 	proto := p[2]
+
+	if len(p) < int(packet_len+2) {
+		log.Printf(COMPONENT+
+			`Unmatched packet size, proto=%d, buffer_length=%d, packet_len=%d, infa_read_len=%d
+Use the buffer length.\n`,
+			proto, len(p), packet_len, ctx.InfaReadBufferLen,
+		)
+
+		packet_len = uint16(len(p) - 2)
+	}
+
 	exdata := p[3 : packet_len+2]
 
 	return YgoPacket{
@@ -81,7 +94,7 @@ func bufferToPacket(p []byte) (YgoPacket, error) {
 	}, nil
 }
 
-func Transform(src []byte, tranformType int) ([]byte, error) {
+func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) {
 	if tranformType == ProtobufToRawBuf {
 		message := &ygopropb.YgoCtosMsg{}
 		err := proto.Unmarshal(src, message)
@@ -96,13 +109,13 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		case *(ygopropb.YgoCtosMsg_CtosJoinGame):
 			packet = (*pCtosJoinGame)(message.GetCtosJoinGame()).Pb2Packet()
 		default:
-			return nil, errors.New("Unhandled YgoCtosMsg type")
+			return nil, errors.New(COMPONENT + "Unhandled YgoCtosMsg type")
 		}
 
 		return packetToBuffer(packet), nil
 
 	} else if tranformType == RawBufToProtobuf {
-		packet, err := bufferToPacket(src)
+		packet, err := bufferToPacket(src, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -113,13 +126,15 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 			pb = pStocChat{}.Packet2Pb(packet)
 		case StocJoinGame:
 			pb = pStocJoinGame{}.Packet2Pb(packet)
+		case StocHsPlayerEnter:
+			pb = pStocHsPlayerEnter{}.Packet2Pb(packet)
 		default:
-			return nil, errors.New(fmt.Sprintf("Unhandled YgoStocMsg type, proto=%d", packet.Proto))
+			return nil, errors.New(fmt.Sprintf(COMPONENT+"Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
 
 		return proto.Marshal(&pb)
 	} else {
-		return nil, errors.New("Unknown tranformType")
+		return nil, errors.New(COMPONENT + "Unknown tranformType")
 	}
 }
 
@@ -225,6 +240,25 @@ func (_ pStocJoinGame) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 			StartHand:     int32(hostInfo.StartHand),
 			DrawCount:     int32(hostInfo.DrawCount),
 			TimeLimit:     int32(hostInfo.TimeLimit),
+		},
+	}
+
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
+	}
+}
+
+type pStocHsPlayerEnter struct{}
+
+func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	name_max := UTF16_BUFFER_MAX_LEN * 2
+	name := utf16BufferToStr(pkt.Exdata[:name_max])
+	pos := pkt.Exdata[name_max]
+
+	msg := ygopropb.YgoStocMsg_StocHsPlayerEnter{
+		StocHsPlayerEnter: &ygopropb.StocHsPlayerEnter{
+			Name: name,
+			Pos:  int32(pos),
 		},
 	}
 
