@@ -10,6 +10,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/sktt1ryze/ygopro-proxy/DarkNeos/ygopropb"
+	util "github.com/sktt1ryze/ygopro-proxy/util"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -65,7 +66,7 @@ func packetToBuffer(pkt YgoPacket) []byte {
 	return buf
 }
 
-func bufferToPacket(p []byte) (YgoPacket, error) {
+func bufferToPacket(p []byte, ctx *util.Context) (YgoPacket, error) {
 	if len(p) < PACKET_MIN_LEN {
 		return YgoPacket{}, errors.New(fmt.Sprintf("Packet len too short, len=%d", len(p)))
 	}
@@ -76,9 +77,9 @@ func bufferToPacket(p []byte) (YgoPacket, error) {
 
 	if len(p) < int(packet_len+2) {
 		log.Printf(COMPONENT+
-			`Unmatched packet size, proto=%d, buffer length=%d, packet_len=%d,
+			`Unmatched packet size, proto=%d, buffer_length=%d, packet_len=%d, infa_read_len=%d
 Use the buffer length.\n`,
-			proto, len(p), packet_len,
+			proto, len(p), packet_len, ctx.InfaReadBufferLen,
 		)
 
 		packet_len = uint16(len(p) - 2)
@@ -93,7 +94,7 @@ Use the buffer length.\n`,
 	}, nil
 }
 
-func Transform(src []byte, tranformType int) ([]byte, error) {
+func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) {
 	if tranformType == ProtobufToRawBuf {
 		message := &ygopropb.YgoCtosMsg{}
 		err := proto.Unmarshal(src, message)
@@ -114,7 +115,7 @@ func Transform(src []byte, tranformType int) ([]byte, error) {
 		return packetToBuffer(packet), nil
 
 	} else if tranformType == RawBufToProtobuf {
-		packet, err := bufferToPacket(src)
+		packet, err := bufferToPacket(src, ctx)
 		if err != nil {
 			return nil, err
 		}

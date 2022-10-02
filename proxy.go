@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	darkneos "github.com/sktt1ryze/ygopro-proxy/DarkNeos"
+	util "github.com/sktt1ryze/ygopro-proxy/util"
 )
 
 const TARGET_PORT = ":8000"
@@ -24,8 +25,12 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 0x1000,
 }
 
+// todo: create Context
+
 func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	defer log.Println(COMPONENT + "ygoEndpoint finished")
+
+	ctx := util.NewContext()
 
 	upgrader.CheckOrigin = wsChecker
 
@@ -33,6 +38,7 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	ctx.WsConnected = true
 
 	log.Println(COMPONENT + "Connection to ws://localhost" + TARGET_PORT + " [websocket] succeeded!")
 
@@ -40,6 +46,7 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Fatal(err)
 	}
+	ctx.TcpConnected = true
 
 	log.Println(COMPONENT + "Connection to " + "12.0.0.1" + PROXY_PORT + " [tcp] succeeded!")
 
@@ -56,8 +63,8 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 		close(tcpStopCh)
 	}()
 
-	go wsProxy(ws, wsCh, wsStopCh)
-	go tcpProxy(tcp, tcpCh, tcpStopCh)
+	go wsProxy(ws, wsCh, wsStopCh, ctx)
+	go tcpProxy(tcp, tcpCh, tcpStopCh, ctx)
 
 	for {
 		select {
@@ -83,8 +90,8 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// todo: generic
-func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
+// todo: use interface
+func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.Context) {
 	defer ws.Close()
 	defer close(Ch)
 
@@ -108,13 +115,14 @@ func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 				log.Println(err)
 				return
 			}
+			ctx.InfaReadBufferLen = len(buffer)
 
 			if messageType == websocket.CloseMessage {
 				log.Println(COMPONENT + "Websocket closed")
 				return
 			}
 
-			buffer, err = darkneos.Transform(buffer, darkneos.ProtobufToRawBuf)
+			buffer, err = darkneos.Transform(buffer, darkneos.ProtobufToRawBuf, &ctx)
 			if err != nil {
 				log.Println(err)
 				return
@@ -125,7 +133,7 @@ func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 	}
 }
 
-func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool) {
+func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.Context) {
 	defer tcp.Close()
 	defer close(Ch)
 
@@ -143,7 +151,7 @@ func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 				return
 			}
 
-			_, err := reader.Read(buffer)
+			n, err := reader.Read(buffer)
 			if err != nil {
 				if err == io.EOF {
 					continue
@@ -156,8 +164,9 @@ func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 				log.Println(err)
 				return
 			}
+			ctx.InfaReadBufferLen = n
 
-			buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf)
+			buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf, &ctx)
 			if err != nil {
 				log.Println(err)
 				return
