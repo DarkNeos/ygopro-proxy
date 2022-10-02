@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bufio"
+	"encoding/binary"
 	"io"
 	"log"
 	"net"
@@ -134,11 +134,9 @@ func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.
 }
 
 func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.Context) {
+	const PACKET_LEN_PENDING = 2
 	defer tcp.Close()
 	defer close(Ch)
-
-	reader := bufio.NewReader(tcp)
-	buffer := make([]byte, BUFFER_SIZE)
 
 	for {
 		select {
@@ -151,12 +149,8 @@ func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.Conte
 				return
 			}
 
-			n, err := reader.Read(buffer)
-			if err != nil {
-				if err == io.EOF {
-					continue
-				}
-
+			guardBuf := make([]byte, PACKET_LEN_PENDING)
+			if _, err := tcp.Read(guardBuf); err != nil {
 				if err, ok := err.(net.Error); ok && err.Timeout() {
 					continue
 				}
@@ -164,15 +158,30 @@ func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool, ctx util.Conte
 				log.Println(err)
 				return
 			}
-			ctx.InfaReadBufferLen = n
 
-			buffer, err = darkneos.Transform(buffer, darkneos.RawBufToProtobuf, &ctx)
+			packet_len := int(binary.LittleEndian.Uint16(guardBuf))
+
+			ctx.InfaReadBufferLen = PACKET_LEN_PENDING
+
+			buffer := make([]byte, packet_len+PACKET_LEN_PENDING)
+			copy(buffer, guardBuf)
+
+			if packet_len > 0 {
+				n, err := io.ReadAtLeast(tcp, buffer[PACKET_LEN_PENDING:], packet_len)
+				if err != nil && err != io.EOF {
+					log.Println(err)
+					return
+				}
+				ctx.InfaReadBufferLen += n
+			}
+
+			newBuffer, err := darkneos.Transform(buffer, darkneos.RawBufToProtobuf, &ctx)
 			if err != nil {
 				log.Println(err)
 				return
 			}
 
-			Ch <- buffer
+			Ch <- newBuffer
 		}
 	}
 }
