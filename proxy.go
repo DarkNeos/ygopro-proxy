@@ -17,6 +17,7 @@ const PROXY_PORT = ":3344"
 const CHANNEL_SIZE = 0x1000
 const BUFFER_SIZE = 0x1000
 const TIME_OUT = 5
+const COMPONENT = "[proxy]"
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  0x1000,
@@ -24,7 +25,7 @@ var upgrader = websocket.Upgrader{
 }
 
 func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
-	defer log.Println("ygoEndpoint finished")
+	defer log.Println(COMPONENT + "ygoEndpoint finished")
 
 	upgrader.CheckOrigin = wsChecker
 
@@ -33,14 +34,14 @@ func ygoEndpoint(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 
-	log.Println("Connection to ws://localhost" + TARGET_PORT + " [websocket] succeeded!")
+	log.Println(COMPONENT + "Connection to ws://localhost" + TARGET_PORT + " [websocket] succeeded!")
 
 	tcp, err := net.Dial("tcp", "127.0.0.1"+PROXY_PORT)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	log.Println("Connection to " + "12.0.0.1" + PROXY_PORT + " [tcp] succeeded!")
+	log.Println(COMPONENT + "Connection to " + "12.0.0.1" + PROXY_PORT + " [tcp] succeeded!")
 
 	wsCh := make(chan []byte, CHANNEL_SIZE)
 	tcpCh := make(chan []byte, CHANNEL_SIZE)
@@ -90,7 +91,7 @@ func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 	for {
 		select {
 		case _, ok := <-stopCh:
-			log.Println("wsProxy recv stop singal, exit. channel closed: ", ok)
+			log.Println(COMPONENT+"wsProxy recv stop singal, exit. channel closed: ", ok)
 			return
 		default:
 			// if err := ws.SetReadDeadline(time.Now().Add(time.Second * TIME_OUT)); err != nil {
@@ -109,7 +110,7 @@ func wsProxy(ws *websocket.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 			}
 
 			if messageType == websocket.CloseMessage {
-				log.Println("Websocket closed")
+				log.Println(COMPONENT + "Websocket closed")
 				return
 			}
 
@@ -134,7 +135,7 @@ func tcpProxy(tcp net.Conn, Ch chan<- []byte, stopCh <-chan bool) {
 	for {
 		select {
 		case _, ok := <-stopCh:
-			log.Println("tcpProxy recv stop singal, exit. channel closed: ", ok)
+			log.Println(COMPONENT+"tcpProxy recv stop singal, exit. channel closed: ", ok)
 			return
 		default:
 			if err := tcp.SetReadDeadline(time.Now().Add(time.Second * TIME_OUT)); err != nil {
@@ -177,6 +178,8 @@ func main() {
 	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile | log.Llongfile)
 
 	setupRoutes()
+
+	log.Println(COMPONENT + "start listening on ws://localhost:" + TARGET_PORT)
 
 	log.Fatal(http.ListenAndServe(TARGET_PORT, nil))
 }
