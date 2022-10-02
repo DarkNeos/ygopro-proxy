@@ -7,15 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"unicode/utf16"
 
 	"github.com/sktt1ryze/ygopro-proxy/DarkNeos/ygopropb"
 	util "github.com/sktt1ryze/ygopro-proxy/util"
 	"google.golang.org/protobuf/proto"
 )
 
-const FILLING_TOKEN uint16 = 0xcccc
-const UTF16_BUFFER_MAX_LEN int = 20
 const PACKET_MIN_LEN int = 3
 const COMPONENT = "[transform]"
 const (
@@ -28,6 +25,7 @@ const (
 	CtosProtoJoinGame   = 18
 
 	StocJoinGame      = 18
+	StocTypeChange    = 19
 	StocChat          = 25
 	StocHsPlayerEnter = 32
 )
@@ -128,6 +126,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			pb = pStocJoinGame{}.Packet2Pb(packet)
 		case StocHsPlayerEnter:
 			pb = pStocHsPlayerEnter{}.Packet2Pb(packet)
+		case StocTypeChange:
+			pb = pStocTypeChage{}.Packet2Pb(packet)
 		default:
 			return nil, errors.New(fmt.Sprintf(COMPONENT+"Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
@@ -148,8 +148,8 @@ type pCtosPlayerInfo ygopropb.CtosPlayerInfo
 
 // @Name: [20]uint16
 func (pb *pCtosPlayerInfo) Pb2Packet() YgoPacket {
-	buf := strToUtf16Buffer(pb.Name)
-	exdata := uint16BufToByteBuf(buf)
+	buf := util.StrToUtf16Buffer(pb.Name)
+	exdata := util.Uint16BufToByteBuf(buf)
 
 	return YgoPacket{
 		PacketLen: uint16(len(exdata)) + 1,
@@ -171,7 +171,7 @@ func (pb *pCtosJoinGame) Pb2Packet() YgoPacket {
 
 	exdata = append(exdata, byte(pb.Gameid), byte(pb.Gameid>>8), byte(pb.Gameid>>16), byte(pb.Gameid>>24))
 
-	for _, v := range uint16BufToByteBuf(strToUtf16Buffer(pb.Passwd)) {
+	for _, v := range util.Uint16BufToByteBuf(util.StrToUtf16Buffer(pb.Passwd)) {
 		exdata = append(exdata, v)
 	}
 
@@ -194,7 +194,7 @@ type pStocChat struct{}
 // @message: []uint16
 func (_ pStocChat) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	player := int32(binary.LittleEndian.Uint16(pkt.Exdata))
-	message := utf16BufferToStr(pkt.Exdata[2:])
+	message := util.Utf16BufferToStr(pkt.Exdata[2:])
 
 	msg := ygopropb.YgoStocMsg_StocChat{
 		StocChat: &ygopropb.StocChat{
@@ -251,8 +251,8 @@ func (_ pStocJoinGame) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 type pStocHsPlayerEnter struct{}
 
 func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
-	name_max := UTF16_BUFFER_MAX_LEN * 2
-	name := utf16BufferToStr(pkt.Exdata[:name_max])
+	name_max := util.UTF16_BUFFER_MAX_LEN * 2
+	name := util.Utf16BufferToStr(pkt.Exdata[:name_max])
 	pos := pkt.Exdata[name_max]
 
 	msg := ygopropb.YgoStocMsg_StocHsPlayerEnter{
@@ -267,56 +267,16 @@ func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	}
 }
 
-// +++++ Util Functions +++++
+type pStocTypeChage struct{}
 
-func strToUtf16Buffer(s string) []uint16 {
-	b := make([]uint16, UTF16_BUFFER_MAX_LEN, UTF16_BUFFER_MAX_LEN)
-	for i := range b {
-		b[i] = FILLING_TOKEN
+func (_ pStocTypeChage) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	msg := ygopropb.YgoStocMsg_StocTypeChange{
+		StocTypeChange: &ygopropb.StocTypeChange{
+			Type: int32(pkt.Exdata[0]),
+		},
 	}
 
-	s_utf16 := utf16.Encode([]rune(s))
-
-	// todo: optimize
-	for i, v := range s_utf16 {
-		if i < UTF16_BUFFER_MAX_LEN {
-			b[i] = v
-
-			if i == len(s_utf16)-1 && i < len(b)-1 {
-				b[i+1] = 0
-			}
-		} else {
-			break
-		}
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
 	}
-
-	return b
-}
-
-func utf16BufferToStr(p []byte) string {
-	v := chunkBytesToUint16s(p)
-
-	return string(utf16.Decode(v))
-}
-
-func uint16BufToByteBuf(u16_b []uint16) []byte {
-	b := make([]byte, 0, len(u16_b)*2)
-
-	for _, v := range u16_b {
-		// little endian
-		b = append(b, byte(v), byte(v>>8))
-	}
-
-	return b
-}
-
-func chunkBytesToUint16s(items []byte) []uint16 {
-	const chunkSize = 2
-	var chunks []uint16
-
-	for chunkSize < len(items) {
-		items, chunks = items[chunkSize:], append(chunks, binary.LittleEndian.Uint16(items))
-	}
-
-	return chunks
 }
