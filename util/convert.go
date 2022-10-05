@@ -49,6 +49,16 @@ func Uint16BufToByteBuf(u16_b []uint16) []byte {
 	return b
 }
 
+func Int32ArrayToByteArray(v []int32) []byte {
+	b := make([]byte, 0, len(v)*4)
+
+	for _, i := range v {
+		b = append(b, byte(i), byte(i>>8), byte(i>>16), byte(i>>24))
+	}
+
+	return b
+}
+
 func chunkBytesToUint16s(items []byte) []uint16 {
 	const chunkSize = 2
 	var chunks []uint16

@@ -21,6 +21,7 @@ const (
 )
 
 const (
+	CtosUpdateDeck      = 2
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
 
@@ -106,6 +107,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			packet = (*pCtosPlayerInfo)(message.GetCtosPlayerInfo()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosJoinGame):
 			packet = (*pCtosJoinGame)(message.GetCtosJoinGame()).Pb2Packet()
+		case *(ygopropb.YgoCtosMsg_CtosUpdateDeck):
+			packet = (*pCtosUpdateDeck)(message.GetCtosUpdateDeck()).Pb2Packet()
 		default:
 			return nil, errors.New(COMPONENT + "Unhandled YgoCtosMsg type")
 		}
@@ -178,6 +181,29 @@ func (pb *pCtosJoinGame) Pb2Packet() YgoPacket {
 	return YgoPacket{
 		PacketLen: uint16(len(exdata)) + 1,
 		Proto:     CtosProtoJoinGame,
+		Exdata:    exdata,
+	}
+}
+
+type pCtosUpdateDeck ygopropb.CtosUpdateDeck
+
+// @main: []int32
+// @extra: []int32
+// @size: []int32
+func (pb *pCtosUpdateDeck) Pb2Packet() YgoPacket {
+	v := make([]int32, 0)
+
+	v = append(v, int32(len(pb.Main)+len(pb.Extra)))
+	v = append(v, int32(len(pb.Side)))
+	v = append(v, pb.Main...)
+	v = append(v, pb.Extra...)
+	v = append(v, pb.Side...)
+
+	exdata := util.Int32ArrayToByteArray(v)
+
+	return YgoPacket{
+		PacketLen: uint16(len(exdata)) + 1,
+		Proto:     CtosUpdateDeck,
 		Exdata:    exdata,
 	}
 }
