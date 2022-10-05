@@ -26,10 +26,11 @@ const (
 	CtosProtoJoinGame   = 18
 	CtosHsReady         = 34
 
-	StocJoinGame      = 18
-	StocTypeChange    = 19
-	StocChat          = 25
-	StocHsPlayerEnter = 32
+	StocJoinGame       = 18
+	StocTypeChange     = 19
+	StocChat           = 25
+	StocHsPlayerEnter  = 32
+	StocHsPlayerChange = 33
 )
 
 type YgoPacket struct {
@@ -134,6 +135,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			pb = pStocHsPlayerEnter{}.Packet2Pb(packet)
 		case StocTypeChange:
 			pb = pStocTypeChage{}.Packet2Pb(packet)
+		case StocHsPlayerChange:
+			pb = pStocHsPlayerChange{}.Packet2Pb(packet)
 		default:
 			return nil, errors.New(fmt.Sprintf(COMPONENT+"Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
@@ -313,6 +316,20 @@ func (_ pStocTypeChage) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	msg := ygopropb.YgoStocMsg_StocTypeChange{
 		StocTypeChange: &ygopropb.StocTypeChange{
 			Type: int32(pkt.Exdata[0]),
+		},
+	}
+
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
+	}
+}
+
+type pStocHsPlayerChange struct{}
+
+func (_ pStocHsPlayerChange) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	msg := ygopropb.YgoStocMsg_StocHsPlayerChange{
+		StocHsPlayerChange: &ygopropb.StocHsPlayerChange{
+			Status: int32(pkt.Exdata[0]),
 		},
 	}
 
