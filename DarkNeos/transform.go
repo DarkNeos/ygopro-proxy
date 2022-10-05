@@ -31,6 +31,7 @@ const (
 	StocChat           = 25
 	StocHsPlayerEnter  = 32
 	StocHsPlayerChange = 33
+	StocHsWatchChange  = 34
 )
 
 type YgoPacket struct {
@@ -137,6 +138,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			pb = pStocTypeChage{}.Packet2Pb(packet)
 		case StocHsPlayerChange:
 			pb = pStocHsPlayerChange{}.Packet2Pb(packet)
+		case StocHsWatchChange:
+			pb = pStocHsWatchChange{}.Packet2Pb(packet)
 		default:
 			return nil, errors.New(fmt.Sprintf(COMPONENT+"Unhandled YgoStocMsg type, proto=%d", packet.Proto))
 		}
@@ -353,6 +356,22 @@ func (_ pStocHsPlayerChange) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 
 	msg := ygopropb.YgoStocMsg_StocHsPlayerChange{
 		StocHsPlayerChange: &pb,
+	}
+
+	return ygopropb.YgoStocMsg{
+		Msg: &msg,
+	}
+}
+
+type pStocHsWatchChange struct{}
+
+func (_ pStocHsWatchChange) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	count := binary.LittleEndian.Uint16(pkt.Exdata)
+
+	msg := ygopropb.YgoStocMsg_StocHsWatchChange{
+		StocHsWatchChange: &ygopropb.StocHsWatchChange{
+			Count: int32(count),
+		},
 	}
 
 	return ygopropb.YgoStocMsg{
