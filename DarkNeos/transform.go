@@ -24,6 +24,7 @@ const (
 	CtosUpdateDeck      = 2
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
+	CtosHsReady         = 34
 
 	StocJoinGame      = 18
 	StocTypeChange    = 19
@@ -109,6 +110,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			packet = (*pCtosJoinGame)(message.GetCtosJoinGame()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosUpdateDeck):
 			packet = (*pCtosUpdateDeck)(message.GetCtosUpdateDeck()).Pb2Packet()
+		case *(ygopropb.YgoCtosMsg_CtosHsReady):
+			packet = (*pCtosHsReady)(message.GetCtosHsReady()).Pb2Packet()
 		default:
 			return nil, errors.New(COMPONENT + "Unhandled YgoCtosMsg type")
 		}
@@ -205,6 +208,17 @@ func (pb *pCtosUpdateDeck) Pb2Packet() YgoPacket {
 		PacketLen: uint16(len(exdata)) + 1,
 		Proto:     CtosUpdateDeck,
 		Exdata:    exdata,
+	}
+}
+
+type pCtosHsReady ygopropb.CtosHsReady
+
+// empty message
+func (_ *pCtosHsReady) Pb2Packet() YgoPacket {
+	return YgoPacket{
+		PacketLen: 1,
+		Proto:     CtosHsReady,
+		Exdata:    make([]byte, 0),
 	}
 }
 
