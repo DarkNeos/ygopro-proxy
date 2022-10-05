@@ -327,10 +327,32 @@ func (_ pStocTypeChage) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 type pStocHsPlayerChange struct{}
 
 func (_ pStocHsPlayerChange) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	pb := ygopropb.StocHsPlayerChange{}
+	pb.State = ygopropb.StocHsPlayerChange_UNKNOWN
+
+	status := pkt.Exdata[0]
+	pos := (status >> 4) & 0xf
+	state := status & 0xf
+
+	pb.Pos = int32(pos)
+
+	if pos < 4 {
+		if state < 8 {
+			pb.State = ygopropb.StocHsPlayerChange_MOVE
+			pb.MovedPos = int32(state)
+		} else if state == 0x9 {
+			pb.State = ygopropb.StocHsPlayerChange_READY
+		} else if state == 0xa {
+			pb.State = ygopropb.StocHsPlayerChange_NO_READY
+		} else if state == 0xb {
+			pb.State = ygopropb.StocHsPlayerChange_LEAVE
+		} else if state == 0x8 {
+			pb.State = ygopropb.StocHsPlayerChange_TO_OBSERVER
+		}
+	}
+
 	msg := ygopropb.YgoStocMsg_StocHsPlayerChange{
-		StocHsPlayerChange: &ygopropb.StocHsPlayerChange{
-			Status: int32(pkt.Exdata[0]),
-		},
+		StocHsPlayerChange: &pb,
 	}
 
 	return ygopropb.YgoStocMsg{
