@@ -20,6 +20,64 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+type StocHsPlayerChange_State int32
+
+const (
+	StocHsPlayerChange_UNKNOWN     StocHsPlayerChange_State = 0
+	StocHsPlayerChange_MOVE        StocHsPlayerChange_State = 1
+	StocHsPlayerChange_READY       StocHsPlayerChange_State = 2
+	StocHsPlayerChange_NO_READY    StocHsPlayerChange_State = 3
+	StocHsPlayerChange_LEAVE       StocHsPlayerChange_State = 4
+	StocHsPlayerChange_TO_OBSERVER StocHsPlayerChange_State = 5
+)
+
+// Enum value maps for StocHsPlayerChange_State.
+var (
+	StocHsPlayerChange_State_name = map[int32]string{
+		0: "UNKNOWN",
+		1: "MOVE",
+		2: "READY",
+		3: "NO_READY",
+		4: "LEAVE",
+		5: "TO_OBSERVER",
+	}
+	StocHsPlayerChange_State_value = map[string]int32{
+		"UNKNOWN":     0,
+		"MOVE":        1,
+		"READY":       2,
+		"NO_READY":    3,
+		"LEAVE":       4,
+		"TO_OBSERVER": 5,
+	}
+)
+
+func (x StocHsPlayerChange_State) Enum() *StocHsPlayerChange_State {
+	p := new(StocHsPlayerChange_State)
+	*p = x
+	return p
+}
+
+func (x StocHsPlayerChange_State) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (StocHsPlayerChange_State) Descriptor() protoreflect.EnumDescriptor {
+	return file_ocgcore_proto_enumTypes[0].Descriptor()
+}
+
+func (StocHsPlayerChange_State) Type() protoreflect.EnumType {
+	return &file_ocgcore_proto_enumTypes[0]
+}
+
+func (x StocHsPlayerChange_State) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use StocHsPlayerChange_State.Descriptor instead.
+func (StocHsPlayerChange_State) EnumDescriptor() ([]byte, []int) {
+	return file_ocgcore_proto_rawDescGZIP(), []int{10, 0}
+}
+
 type YgoCtosMsg struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -742,7 +800,9 @@ type StocHsPlayerChange struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Status int32 `protobuf:"varint,1,opt,name=status,proto3" json:"status,omitempty"`
+	State    StocHsPlayerChange_State `protobuf:"varint,1,opt,name=state,proto3,enum=ygopro.StocHsPlayerChange_State" json:"state,omitempty"`
+	Pos      int32                    `protobuf:"varint,2,opt,name=pos,proto3" json:"pos,omitempty"`
+	MovedPos int32                    `protobuf:"varint,3,opt,name=moved_pos,json=movedPos,proto3" json:"moved_pos,omitempty"`
 }
 
 func (x *StocHsPlayerChange) Reset() {
@@ -777,9 +837,23 @@ func (*StocHsPlayerChange) Descriptor() ([]byte, []int) {
 	return file_ocgcore_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *StocHsPlayerChange) GetStatus() int32 {
+func (x *StocHsPlayerChange) GetState() StocHsPlayerChange_State {
 	if x != nil {
-		return x.Status
+		return x.State
+	}
+	return StocHsPlayerChange_UNKNOWN
+}
+
+func (x *StocHsPlayerChange) GetPos() int32 {
+	if x != nil {
+		return x.Pos
+	}
+	return 0
+}
+
+func (x *StocHsPlayerChange) GetMovedPos() int32 {
+	if x != nil {
+		return x.MovedPos
 	}
 	return 0
 }
@@ -870,12 +944,22 @@ var file_ocgcore_proto_rawDesc = []byte{
 	0x52, 0x04, 0x6e, 0x61, 0x6d, 0x65, 0x12, 0x10, 0x0a, 0x03, 0x70, 0x6f, 0x73, 0x18, 0x02, 0x20,
 	0x01, 0x28, 0x05, 0x52, 0x03, 0x70, 0x6f, 0x73, 0x22, 0x24, 0x0a, 0x0e, 0x53, 0x74, 0x6f, 0x63,
 	0x54, 0x79, 0x70, 0x65, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x12, 0x0a, 0x04, 0x74, 0x79,
-	0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x22, 0x2c,
-	0x0a, 0x12, 0x53, 0x74, 0x6f, 0x63, 0x48, 0x73, 0x50, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x43, 0x68,
-	0x61, 0x6e, 0x67, 0x65, 0x12, 0x16, 0x0a, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x18, 0x01,
-	0x20, 0x01, 0x28, 0x05, 0x52, 0x06, 0x73, 0x74, 0x61, 0x74, 0x75, 0x73, 0x42, 0x13, 0x5a, 0x11,
-	0x44, 0x61, 0x72, 0x6b, 0x4e, 0x65, 0x6f, 0x73, 0x2f, 0x79, 0x67, 0x6f, 0x70, 0x72, 0x6f, 0x70,
-	0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x70, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x05, 0x52, 0x04, 0x74, 0x79, 0x70, 0x65, 0x22, 0xd0,
+	0x01, 0x0a, 0x12, 0x53, 0x74, 0x6f, 0x63, 0x48, 0x73, 0x50, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x43,
+	0x68, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x36, 0x0a, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0e, 0x32, 0x20, 0x2e, 0x79, 0x67, 0x6f, 0x70, 0x72, 0x6f, 0x2e, 0x53, 0x74,
+	0x6f, 0x63, 0x48, 0x73, 0x50, 0x6c, 0x61, 0x79, 0x65, 0x72, 0x43, 0x68, 0x61, 0x6e, 0x67, 0x65,
+	0x2e, 0x53, 0x74, 0x61, 0x74, 0x65, 0x52, 0x05, 0x73, 0x74, 0x61, 0x74, 0x65, 0x12, 0x10, 0x0a,
+	0x03, 0x70, 0x6f, 0x73, 0x18, 0x02, 0x20, 0x01, 0x28, 0x05, 0x52, 0x03, 0x70, 0x6f, 0x73, 0x12,
+	0x1b, 0x0a, 0x09, 0x6d, 0x6f, 0x76, 0x65, 0x64, 0x5f, 0x70, 0x6f, 0x73, 0x18, 0x03, 0x20, 0x01,
+	0x28, 0x05, 0x52, 0x08, 0x6d, 0x6f, 0x76, 0x65, 0x64, 0x50, 0x6f, 0x73, 0x22, 0x53, 0x0a, 0x05,
+	0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x0b, 0x0a, 0x07, 0x55, 0x4e, 0x4b, 0x4e, 0x4f, 0x57, 0x4e,
+	0x10, 0x00, 0x12, 0x08, 0x0a, 0x04, 0x4d, 0x4f, 0x56, 0x45, 0x10, 0x01, 0x12, 0x09, 0x0a, 0x05,
+	0x52, 0x45, 0x41, 0x44, 0x59, 0x10, 0x02, 0x12, 0x0c, 0x0a, 0x08, 0x4e, 0x4f, 0x5f, 0x52, 0x45,
+	0x41, 0x44, 0x59, 0x10, 0x03, 0x12, 0x09, 0x0a, 0x05, 0x4c, 0x45, 0x41, 0x56, 0x45, 0x10, 0x04,
+	0x12, 0x0f, 0x0a, 0x0b, 0x54, 0x4f, 0x5f, 0x4f, 0x42, 0x53, 0x45, 0x52, 0x56, 0x45, 0x52, 0x10,
+	0x05, 0x42, 0x13, 0x5a, 0x11, 0x44, 0x61, 0x72, 0x6b, 0x4e, 0x65, 0x6f, 0x73, 0x2f, 0x79, 0x67,
+	0x6f, 0x70, 0x72, 0x6f, 0x70, 0x62, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -890,35 +974,38 @@ func file_ocgcore_proto_rawDescGZIP() []byte {
 	return file_ocgcore_proto_rawDescData
 }
 
+var file_ocgcore_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_ocgcore_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_ocgcore_proto_goTypes = []interface{}{
-	(*YgoCtosMsg)(nil),         // 0: ygopro.YgoCtosMsg
-	(*YgoStocMsg)(nil),         // 1: ygopro.YgoStocMsg
-	(*CtosPlayerInfo)(nil),     // 2: ygopro.CtosPlayerInfo
-	(*CtosJoinGame)(nil),       // 3: ygopro.CtosJoinGame
-	(*CtosUpdateDeck)(nil),     // 4: ygopro.CtosUpdateDeck
-	(*CtosHsReady)(nil),        // 5: ygopro.CtosHsReady
-	(*StocJoinGame)(nil),       // 6: ygopro.StocJoinGame
-	(*StocChat)(nil),           // 7: ygopro.StocChat
-	(*StocHsPlayerEnter)(nil),  // 8: ygopro.StocHsPlayerEnter
-	(*StocTypeChange)(nil),     // 9: ygopro.StocTypeChange
-	(*StocHsPlayerChange)(nil), // 10: ygopro.StocHsPlayerChange
+	(StocHsPlayerChange_State)(0), // 0: ygopro.StocHsPlayerChange.State
+	(*YgoCtosMsg)(nil),            // 1: ygopro.YgoCtosMsg
+	(*YgoStocMsg)(nil),            // 2: ygopro.YgoStocMsg
+	(*CtosPlayerInfo)(nil),        // 3: ygopro.CtosPlayerInfo
+	(*CtosJoinGame)(nil),          // 4: ygopro.CtosJoinGame
+	(*CtosUpdateDeck)(nil),        // 5: ygopro.CtosUpdateDeck
+	(*CtosHsReady)(nil),           // 6: ygopro.CtosHsReady
+	(*StocJoinGame)(nil),          // 7: ygopro.StocJoinGame
+	(*StocChat)(nil),              // 8: ygopro.StocChat
+	(*StocHsPlayerEnter)(nil),     // 9: ygopro.StocHsPlayerEnter
+	(*StocTypeChange)(nil),        // 10: ygopro.StocTypeChange
+	(*StocHsPlayerChange)(nil),    // 11: ygopro.StocHsPlayerChange
 }
 var file_ocgcore_proto_depIdxs = []int32{
-	2,  // 0: ygopro.YgoCtosMsg.ctos_player_info:type_name -> ygopro.CtosPlayerInfo
-	3,  // 1: ygopro.YgoCtosMsg.ctos_join_game:type_name -> ygopro.CtosJoinGame
-	4,  // 2: ygopro.YgoCtosMsg.ctos_update_deck:type_name -> ygopro.CtosUpdateDeck
-	5,  // 3: ygopro.YgoCtosMsg.ctos_hs_ready:type_name -> ygopro.CtosHsReady
-	6,  // 4: ygopro.YgoStocMsg.stoc_join_game:type_name -> ygopro.StocJoinGame
-	7,  // 5: ygopro.YgoStocMsg.stoc_chat:type_name -> ygopro.StocChat
-	8,  // 6: ygopro.YgoStocMsg.stoc_hs_player_enter:type_name -> ygopro.StocHsPlayerEnter
-	9,  // 7: ygopro.YgoStocMsg.stoc_type_change:type_name -> ygopro.StocTypeChange
-	10, // 8: ygopro.YgoStocMsg.stoc_hs_player_change:type_name -> ygopro.StocHsPlayerChange
-	9,  // [9:9] is the sub-list for method output_type
-	9,  // [9:9] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	3,  // 0: ygopro.YgoCtosMsg.ctos_player_info:type_name -> ygopro.CtosPlayerInfo
+	4,  // 1: ygopro.YgoCtosMsg.ctos_join_game:type_name -> ygopro.CtosJoinGame
+	5,  // 2: ygopro.YgoCtosMsg.ctos_update_deck:type_name -> ygopro.CtosUpdateDeck
+	6,  // 3: ygopro.YgoCtosMsg.ctos_hs_ready:type_name -> ygopro.CtosHsReady
+	7,  // 4: ygopro.YgoStocMsg.stoc_join_game:type_name -> ygopro.StocJoinGame
+	8,  // 5: ygopro.YgoStocMsg.stoc_chat:type_name -> ygopro.StocChat
+	9,  // 6: ygopro.YgoStocMsg.stoc_hs_player_enter:type_name -> ygopro.StocHsPlayerEnter
+	10, // 7: ygopro.YgoStocMsg.stoc_type_change:type_name -> ygopro.StocTypeChange
+	11, // 8: ygopro.YgoStocMsg.stoc_hs_player_change:type_name -> ygopro.StocHsPlayerChange
+	0,  // 9: ygopro.StocHsPlayerChange.state:type_name -> ygopro.StocHsPlayerChange.State
+	10, // [10:10] is the sub-list for method output_type
+	10, // [10:10] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_ocgcore_proto_init() }
@@ -1078,13 +1165,14 @@ func file_ocgcore_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_ocgcore_proto_rawDesc,
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_ocgcore_proto_goTypes,
 		DependencyIndexes: file_ocgcore_proto_depIdxs,
+		EnumInfos:         file_ocgcore_proto_enumTypes,
 		MessageInfos:      file_ocgcore_proto_msgTypes,
 	}.Build()
 	File_ocgcore_proto = out.File
