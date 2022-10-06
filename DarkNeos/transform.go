@@ -299,7 +299,7 @@ type pStocHsPlayerEnter struct{}
 func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	name_max := util.UTF16_BUFFER_MAX_LEN * 2
 	name := util.Utf16BufferToStr(pkt.Exdata[:name_max])
-	pos := pkt.Exdata[name_max]
+	pos := pkt.Exdata[name_max] & 0x3 // todo: make sure
 
 	msg := ygopropb.YgoStocMsg_StocHsPlayerEnter{
 		StocHsPlayerEnter: &ygopropb.StocHsPlayerEnter{
