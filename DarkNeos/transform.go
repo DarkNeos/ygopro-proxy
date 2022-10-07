@@ -25,6 +25,7 @@ const (
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
 	CtosHsReady         = 34
+	CtosHsStart         = 37
 
 	StocJoinGame       = 18
 	StocTypeChange     = 19
@@ -114,6 +115,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			packet = (*pCtosUpdateDeck)(message.GetCtosUpdateDeck()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosHsReady):
 			packet = (*pCtosHsReady)(message.GetCtosHsReady()).Pb2Packet()
+		case *(ygopropb.YgoCtosMsg_CtosHsStart):
+			packet = (*pCtosHsStart)(message.GetCtosHsStart()).Packet2Pb()
 		default:
 			return nil, errors.New(COMPONENT + "Unhandled YgoCtosMsg type")
 		}
@@ -228,6 +231,17 @@ func (_ *pCtosHsReady) Pb2Packet() YgoPacket {
 	}
 }
 
+type pCtosHsStart ygopropb.CtosHsStart
+
+// empty message
+func (_ *pCtosHsStart) Packet2Pb() YgoPacket {
+	return YgoPacket{
+		PacketLen: 1,
+		Proto:     CtosHsStart,
+		Exdata:    make([]byte, 0),
+	}
+}
+
 // +++++ Server To Client +++++
 
 type server2Client interface {
@@ -299,7 +313,7 @@ type pStocHsPlayerEnter struct{}
 func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 	name_max := util.UTF16_BUFFER_MAX_LEN * 2
 	name := util.Utf16BufferToStr(pkt.Exdata[:name_max])
-	pos := pkt.Exdata[name_max]
+	pos := pkt.Exdata[name_max] & 0x3 // todo: make sure
 
 	msg := ygopropb.YgoStocMsg_StocHsPlayerEnter{
 		StocHsPlayerEnter: &ygopropb.StocHsPlayerEnter{
@@ -316,9 +330,45 @@ func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 type pStocTypeChage struct{}
 
 func (_ pStocTypeChage) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	type_ := pkt.Exdata[0]
+	isHost := ((type_ >> 4) & 0xf) != 0
+
+	var selfType ygopropb.StocTypeChange_SelfType
+	switch type_ & 0xf {
+	case 0:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER1
+		}
+	case 1:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER2
+		}
+	case 2:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER3
+		}
+	case 3:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER4
+		}
+	case 4:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER5
+		}
+	case 5:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER6
+		}
+	default:
+		{
+			selfType = ygopropb.StocTypeChange_UNKNOWN
+		}
+	}
+
 	msg := ygopropb.YgoStocMsg_StocTypeChange{
 		StocTypeChange: &ygopropb.StocTypeChange{
-			Type: int32(pkt.Exdata[0]),
+			SelfType: selfType,
+			IsHost:   isHost,
 		},
 	}
 
