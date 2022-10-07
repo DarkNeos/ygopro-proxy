@@ -25,6 +25,7 @@ const (
 	CtosProtoPlayerInfo = 16
 	CtosProtoJoinGame   = 18
 	CtosHsReady         = 34
+	CtosHsNotReady      = 35
 	CtosHsStart         = 37
 
 	StocJoinGame       = 18
@@ -115,6 +116,8 @@ func Transform(src []byte, tranformType int, ctx *util.Context) ([]byte, error) 
 			packet = (*pCtosUpdateDeck)(message.GetCtosUpdateDeck()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosHsReady):
 			packet = (*pCtosHsReady)(message.GetCtosHsReady()).Pb2Packet()
+		case *(ygopropb.YgoCtosMsg_CtosHsNotReady):
+			packet = (*pCtosHsNotReady)(message.GetCtosHsNotReady()).Pb2Packet()
 		case *(ygopropb.YgoCtosMsg_CtosHsStart):
 			packet = (*pCtosHsStart)(message.GetCtosHsStart()).Packet2Pb()
 		default:
@@ -227,6 +230,17 @@ func (_ *pCtosHsReady) Pb2Packet() YgoPacket {
 	return YgoPacket{
 		PacketLen: 1,
 		Proto:     CtosHsReady,
+		Exdata:    make([]byte, 0),
+	}
+}
+
+type pCtosHsNotReady ygopropb.CtosHsNotReady
+
+// empty message
+func (_ *pCtosHsNotReady) Pb2Packet() YgoPacket {
+	return YgoPacket{
+		PacketLen: 1,
+		Proto:     CtosHsNotReady,
 		Exdata:    make([]byte, 0),
 	}
 }
