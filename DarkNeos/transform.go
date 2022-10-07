@@ -330,9 +330,45 @@ func (_ pStocHsPlayerEnter) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
 type pStocTypeChage struct{}
 
 func (_ pStocTypeChage) Packet2Pb(pkt YgoPacket) ygopropb.YgoStocMsg {
+	type_ := pkt.Exdata[0]
+	isHost := ((type_ >> 4) & 0xf) != 0
+
+	var selfType ygopropb.StocTypeChange_SelfType
+	switch type_ & 0xf {
+	case 0:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER1
+		}
+	case 1:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER2
+		}
+	case 2:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER3
+		}
+	case 3:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER4
+		}
+	case 4:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER5
+		}
+	case 5:
+		{
+			selfType = ygopropb.StocTypeChange_PLAYER6
+		}
+	default:
+		{
+			selfType = ygopropb.StocTypeChange_UNKNOWN
+		}
+	}
+
 	msg := ygopropb.YgoStocMsg_StocTypeChange{
 		StocTypeChange: &ygopropb.StocTypeChange{
-			Type: int32(pkt.Exdata[0]),
+			SelfType: selfType,
+			IsHost:   isHost,
 		},
 	}
 
